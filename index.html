@@ -1,0 +1,28 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>Neighborhood Map</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script type='text/javascript' src='js/knockout-3.4.1.js'></script>
+</head>
+
+<body>
+    <div id="test"></div>
+    <p>First name: <strong data-bind="text: firstName">todo</strong></p>
+    <p>Last name: <strong data-bind="text: lastName">todo</strong></p>
+    <h3>My Google Maps Demo</h3>
+    <div id="map"></div>
+    <script src="js/jquery-3.1.1.min.js"></script>
+  <script src="js/app.js"></script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyApoU2dpC25z2Z45WKMGV16kdTatObgr4M&callback=initMap">
+    </script>
+    
+  <script>
+  $("#test").text("hello world");
+  </script>
+</body>
+</html>
