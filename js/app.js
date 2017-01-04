@@ -9,15 +9,41 @@ function AppViewModel() {
   self.firstName = "Richard";
   self.lastName = "Yhip";
   self.fullName = ko.computed(function () {
-    return self.firstName + " " + self.lastName;
+    return self.first
+    Name + " " + self.lastName;
   }, self);
-  if(currentPlace) {
-    getFoursquareInformationForLocation(currentPlace[0].geometry.location.lat(), currentPlace[0].geometry.location.lng());
-  }
-  
+
+  self.venues = ko.observableArray([]);
 }
 
-ko.applyBindings(new AppViewModel());
+// viewmodel code
+var viewModel = {
+  fname: "First",
+  lname: "Last",
+  venues: ko.observableArray([])
+};
+viewModel.fullname = ko.computed(function () {
+  return viewModel.fname + " " + viewModel.lname;
+});
+var printarray = function (array) {
+  for (var i = 0; i < array.length; i++) {
+    console.log(array[i].name);
+  }
+}
+viewModel.sort = function () {
+  //console.log("unsorted");
+  //printarray(viewModel.venues());
+
+  viewModel.venues.sort(function (left, right) {
+    return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1)
+  })
+  //console.log("sorted");
+  //printarray(viewModel.venues());
+};
+viewModel.filter = function(name) {
+  console.log(name);
+}
+ko.applyBindings(viewModel);
 
 // http://api.eventful.com/json/events/search?app_key=t5wrJZZBq3bMtzvG&where=38.857481,-77.196756&within=25 
 // https://api.foursquare.com/v2/venues/search?ll=40.7,-74&client_id=FOURSQUARE_CLIENT_IDF&client_secret=FOURSQUARE_CLIENT_SECRET&v=20161221
@@ -84,6 +110,21 @@ geocoder.geocode({ 'address': address }, function (results, status) {
   }
 });
 */
+
+function getFoursquareVenues() {
+  if (currentPlace) {
+    var lat = currentPlace[0].geometry.location.lat();
+    var lng = currentPlace[0].geometry.location.lng();
+    var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
+    $.ajax({
+      url: foursquareApiUrl
+    }).done(function (data) {
+      console.log(data);
+      viewModel.venues(data.response.venues);
+    })
+  }
+}
+
 function getFoursquareInformationForLocation(lat, lng) {
   var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
   $.ajax({
@@ -93,7 +134,6 @@ function getFoursquareInformationForLocation(lat, lng) {
       console.log(map);
       if (console && console.log) {
         var venues = data.response.venues;
-
 
         var bounds = new google.maps.LatLngBounds();
         for (var i = 0; i < venues.length; i++) {
@@ -200,7 +240,7 @@ function initAutocomplete() {
       }
     });
     map.fitBounds(bounds);
-
+    getFoursquareVenues();
     //getEventfulEvents(places[0].geometry.location.lat(), places[0].geometry.location.lng(), map);
   });
 }
