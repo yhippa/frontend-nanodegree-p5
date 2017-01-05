@@ -20,7 +20,8 @@ function AppViewModel() {
 var viewModel = {
   fname: "First",
   lname: "Last",
-  venues: ko.observableArray([])
+  venues: ko.observableArray([]),
+  currentFilter: ko.observable()
 };
 viewModel.fullname = ko.computed(function () {
   return viewModel.fname + " " + viewModel.lname;
@@ -40,9 +41,23 @@ viewModel.sort = function () {
   //console.log("sorted");
   //printarray(viewModel.venues());
 };
-viewModel.filter = function(name) {
-  console.log(name);
+viewModel.filter = function (filterParam) {
+  console.log("Filter param: " + filterParam);
+  viewModel.currentFilter(filterParam);
 }
+
+viewModel.filterVenues = ko.computed(function () {
+  if (!viewModel.currentFilter()) {
+    return viewModel.venues();
+  } else {
+    return ko.utils.arrayFilter(viewModel.venues(), function (venue) {
+      if (venue.name.indexOf(viewModel.currentFilter()) > -1) {
+        return true;
+      } else return false;
+    });
+  }
+});
+
 ko.applyBindings(viewModel);
 
 // http://api.eventful.com/json/events/search?app_key=t5wrJZZBq3bMtzvG&where=38.857481,-77.196756&within=25 
@@ -199,6 +214,7 @@ function initAutocomplete() {
   searchBox.addListener('places_changed', function () {
     var places = searchBox.getPlaces();
     currentPlace = places;
+    viewModel.currentFilter(null);
     if (places.length == 0) {
       return;
     }
