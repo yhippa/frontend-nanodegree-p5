@@ -16,12 +16,14 @@ function AppViewModel() {
   self.venues = ko.observableArray([]);
 }
 
+
 // viewmodel code
 var viewModel = {
   fname: "First",
   lname: "Last",
   venues: ko.observableArray([]),
-  currentFilter: ko.observable()
+  currentFilter: ko.observable(),
+  markers: ko.observableArray([])
 };
 viewModel.fullname = ko.computed(function () {
   return viewModel.fname + " " + viewModel.lname;
@@ -32,99 +34,35 @@ var printarray = function (array) {
   }
 }
 viewModel.sort = function () {
-  //console.log("unsorted");
-  //printarray(viewModel.venues());
-
   viewModel.venues.sort(function (left, right) {
     return left.name == right.name ? 0 : (left.name < right.name ? -1 : 1)
   })
-  //console.log("sorted");
-  //printarray(viewModel.venues());
 };
 viewModel.filter = function (filterParam) {
-  console.log("Filter param: " + filterParam);
   viewModel.currentFilter(filterParam);
-}
 
-viewModel.filterVenues = ko.computed(function () {
+}
+viewModel.filteredVenues = ko.computed(function () {
   if (!viewModel.currentFilter()) {
+    console.log(viewModel.venues());
     return viewModel.venues();
   } else {
     return ko.utils.arrayFilter(viewModel.venues(), function (venue) {
-      if (venue.name.indexOf(viewModel.currentFilter()) > -1) {
+      if (venue.name.toLowerCase().indexOf(viewModel.currentFilter().toLowerCase()) > -1) {
+        venue.marker.setVisible(true);
+        console.log(viewModel.venues());
         return true;
-      } else return false;
+      } else {
+        venue.marker.setVisible(false);
+        console.log(viewModel.venues());
+        return false;
+      }
     });
-  }
+  };
+  
 });
 
 ko.applyBindings(viewModel);
-
-// http://api.eventful.com/json/events/search?app_key=t5wrJZZBq3bMtzvG&where=38.857481,-77.196756&within=25 
-// https://api.foursquare.com/v2/venues/search?ll=40.7,-74&client_id=FOURSQUARE_CLIENT_IDF&client_secret=FOURSQUARE_CLIENT_SECRET&v=20161221
-// https://maps.googleapis.com/maps/api/js?key=AIzaSyApoU2dpC25z2Z45WKMGV16kdTatObgr4M&callback=initMap
-function getEventfulEvents(lat, lng, map) {
-  var eventfulApiUrl = "http://api.eventful.com/json/events/search?app_key=" + EVENTFUL_API_KEY + "&where=" + lat + "," + lng + "&within=25 ";
-  $.ajax({
-    url: eventfulApiUrl
-  }).done(function (data) {
-    var eventfulResultObject = JSON.parse(data);
-    var events = eventfulResultObject.events.event;
-    var geocoder = new google.maps.Geocoder();
-    for (var i = 0; i < events.length; i++) {
-      (function (event) {
-        var infowindow = new google.maps.InfoWindow({
-          content: event.title + "<p>" + event.venue_name
-        });
-        console.log(event);
-        var address = event.venue_name + " " + event.venue_address + " " + event.city_name + " " + event.region_abbr + " " + event.postal_code;
-
-        geocoder.geocode({ 'address': address }, function (results, status) {
-          if (status === 'OK') {
-            /*
-            resultsMap.setCenter(results[0].geometry.location);
-            var marker = new google.maps.Marker({
-              map: resultsMap,
-              position: results[0].geometry.location
-            });
-            */
-            console.log(address);
-            console.log(results);
-          } else {
-            console.log("Location not found");
-            //alert('Geocode was not successful for the following reason: ' + status);
-          }
-        });
-
-        var marker = new google.maps.Marker({
-          position: { lat: parseInt(event.latitude), lng: parseInt(event.longitude) },
-          map: map,
-          animation: google.maps.Animation.DROP,
-          icon: makeMarkerIcon("3373FF")
-        });
-        marker.addListener('click', function () {
-          infowindow.open(map, marker);
-        });
-        //bounds.extend(marker.position);
-      })(events[i]);
-    }
-    //map.fitBounds(bounds);
-  });
-}
-/*
-var address = document.getElementById('address').value;
-geocoder.geocode({ 'address': address }, function (results, status) {
-  if (status === 'OK') {
-    resultsMap.setCenter(results[0].geometry.location);
-    var marker = new google.maps.Marker({
-      map: resultsMap,
-      position: results[0].geometry.location
-    });
-  } else {
-    alert('Geocode was not successful for the following reason: ' + status);
-  }
-});
-*/
 
 function getFoursquareVenues() {
   if (currentPlace) {
@@ -134,51 +72,31 @@ function getFoursquareVenues() {
     $.ajax({
       url: foursquareApiUrl
     }).done(function (data) {
-      console.log(data);
       viewModel.venues(data.response.venues);
+      for (var i = 0; i < viewModel.venues().length; i++) {
+        (function (venue) {
+          var category = "";
+          for (var j = 0; j < venue.categories.length; j++) {
+            category += venue.categories[j].name + " ";
+          }
+          var infowindow = new google.maps.InfoWindow({
+            content: venue.name + "<p>" + category
+          });
+          var marker = new google.maps.Marker({
+            position: { lat: venue.location.lat, lng: venue.location.lng },
+            map: map,
+            animation: google.maps.Animation.DROP,
+            icon: makeMarkerIcon("FF33F2")
+          });
+          marker.addListener('click', function () {
+            infowindow.open(map, marker);
+          });
+          venue.marker = marker;
+        } (viewModel.venues()[i]))
+      }
     })
   }
-}
 
-function getFoursquareInformationForLocation(lat, lng) {
-  var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
-  $.ajax({
-    url: foursquareApiUrl
-  })
-    .done(function (data) {
-      console.log(map);
-      if (console && console.log) {
-        var venues = data.response.venues;
-
-        var bounds = new google.maps.LatLngBounds();
-        for (var i = 0; i < venues.length; i++) {
-
-          (function (venue) {
-            var category = "";
-            for (var j = 0; j < venue.categories.length; j++) {
-              category += venue.categories[j].name + " ";
-
-            }
-            console.log(category);
-            var infowindow = new google.maps.InfoWindow({
-              content: venue.name + "<p>" + category
-            });
-            var marker = new google.maps.Marker({
-              position: { lat: venue.location.lat, lng: venue.location.lng },
-              map: map,
-              animation: google.maps.Animation.DROP,
-              icon: makeMarkerIcon("FF33F2")
-            });
-            marker.addListener('click', function () {
-              infowindow.open(map, marker);
-            });
-            bounds.extend(marker.position);
-          })(venues[i]);
-
-        }
-        map.fitBounds(bounds);
-      }
-    });
 }
 
 // This example adds a search box to a map, using the Google Place Autocomplete
@@ -257,6 +175,7 @@ function initAutocomplete() {
     });
     map.fitBounds(bounds);
     getFoursquareVenues();
+    getFoursquareVenues(places[0].geometry.location.lat(), places[0].geometry.location.lng(), map);
     //getEventfulEvents(places[0].geometry.location.lat(), places[0].geometry.location.lng(), map);
   });
 }
@@ -273,4 +192,115 @@ function makeMarkerIcon(markerColor) {
     new google.maps.Point(10, 34),
     new google.maps.Size(21, 34));
   return markerImage;
+}
+
+
+
+
+
+// potential to delete
+// http://api.eventful.com/json/events/search?app_key=t5wrJZZBq3bMtzvG&where=38.857481,-77.196756&within=25 
+// https://api.foursquare.com/v2/venues/search?ll=40.7,-74&client_id=FOURSQUARE_CLIENT_IDF&client_secret=FOURSQUARE_CLIENT_SECRET&v=20161221
+// https://maps.googleapis.com/maps/api/js?key=AIzaSyApoU2dpC25z2Z45WKMGV16kdTatObgr4M&callback=initMap
+function getEventfulEvents(lat, lng, map) {
+  var eventfulApiUrl = "http://api.eventful.com/json/events/search?app_key=" + EVENTFUL_API_KEY + "&where=" + lat + "," + lng + "&within=25 ";
+  $.ajax({
+    url: eventfulApiUrl
+  }).done(function (data) {
+    var eventfulResultObject = JSON.parse(data);
+    var events = eventfulResultObject.events.event;
+    var geocoder = new google.maps.Geocoder();
+    for (var i = 0; i < events.length; i++) {
+      (function (event) {
+        var infowindow = new google.maps.InfoWindow({
+          content: event.title + "<p>" + event.venue_name
+        });
+        console.log(event);
+        var address = event.venue_name + " " + event.venue_address + " " + event.city_name + " " + event.region_abbr + " " + event.postal_code;
+
+        geocoder.geocode({ 'address': address }, function (results, status) {
+          if (status === 'OK') {
+            /*
+            resultsMap.setCenter(results[0].geometry.location);
+            var marker = new google.maps.Marker({
+              map: resultsMap,
+              position: results[0].geometry.location
+            });
+            */
+            console.log(address);
+            console.log(results);
+          } else {
+            console.log("Location not found");
+            //alert('Geocode was not successful for the following reason: ' + status);
+          }
+        });
+
+        var marker = new google.maps.Marker({
+          position: { lat: parseInt(event.latitude), lng: parseInt(event.longitude) },
+          map: map,
+          animation: google.maps.Animation.DROP,
+          icon: makeMarkerIcon("3373FF")
+        });
+        marker.addListener('click', function () {
+          infowindow.open(map, marker);
+        });
+        //bounds.extend(marker.position);
+      })(events[i]);
+    }
+    //map.fitBounds(bounds);
+  });
+}
+/*
+var address = document.getElementById('address').value;
+geocoder.geocode({ 'address': address }, function (results, status) {
+  if (status === 'OK') {
+    resultsMap.setCenter(results[0].geometry.location);
+    var marker = new google.maps.Marker({
+      map: resultsMap,
+      position: results[0].geometry.location
+    });
+  } else {
+    alert('Geocode was not successful for the following reason: ' + status);
+  }
+});
+*/
+
+function getFoursquareInformationForLocation(lat, lng) {
+  var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
+  $.ajax({
+    url: foursquareApiUrl
+  })
+    .done(function (data) {
+      console.log(map);
+      if (console && console.log) {
+        var venues = data.response.venues;
+
+        var bounds = new google.maps.LatLngBounds();
+        for (var i = 0; i < venues.length; i++) {
+
+          (function (venue) {
+            var category = "";
+            for (var j = 0; j < venue.categories.length; j++) {
+              category += venue.categories[j].name + " ";
+
+            }
+            var infowindow = new google.maps.InfoWindow({
+              content: venue.name + "<p>" + category
+            });
+            var marker = new google.maps.Marker({
+              position: { lat: venue.location.lat, lng: venue.location.lng },
+              map: map,
+              animation: google.maps.Animation.DROP,
+              icon: makeMarkerIcon("FF33F2")
+            });
+            marker.addListener('click', function () {
+              infowindow.open(map, marker);
+            });
+            bounds.extend(marker.position);
+          })(venues[i]);
+
+        }
+        map.fitBounds(bounds);
+      }
+    });
 }
