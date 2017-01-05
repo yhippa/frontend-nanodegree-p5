@@ -11,8 +11,7 @@
   <input id="pac-input" class="controls" type="text" placeholder="Search Box">
   <div id="map"></div>
   <div class="fixed">
-    <button data-bind="click: sort">Sort</button>
-    <p>Filter: <input data-bind="value: currentFilter, valueUpdate: 'afterkeydown'" /></p>
+    <p>Filter: <input data-bind="value: currentFilter, valueUpdate: 'afterkeydown'" placeholder="Enter a place or category"/></p>
     <ul data-bind="foreach: filteredVenues">
       <li data-bind="text: name"></li>
     </ul>
