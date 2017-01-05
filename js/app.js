@@ -32,7 +32,6 @@ viewModel.filteredVenues = ko.computed(function () {
 });
 
 var comparator = function (venue) {
-  console.log(categoryList);
   if ((venue.name.toLowerCase().indexOf(viewModel.currentFilter().toLowerCase()) > -1) || arrayContainsString(venue, viewModel.currentFilter())) {
     return true;
   }
