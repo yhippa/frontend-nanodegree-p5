@@ -6,10 +6,14 @@ const EVENTFUL_API_KEY = "t5wrJZZBq3bMtzvG";
 
 var viewModel = {
   venues: ko.observableArray([]),
+  categories: ko.observableArray([]),
+  selectedCategory: ko.observable(),
   currentFilter: ko.observable()
 };
 viewModel.filteredVenues = ko.computed(function () {
+  // only filter if currentFilter has a value
   if (!viewModel.currentFilter()) {
+    // make sure all venues are visible
     if (viewModel.venues()) {
       viewModel.venues().forEach(function (venue) {
         if (venue.marker) {
@@ -19,20 +23,25 @@ viewModel.filteredVenues = ko.computed(function () {
     }
     return viewModel.venues();
   } else {
+    // only show markers whose venues match the filter
     return ko.utils.arrayFilter(viewModel.venues(), function (venue) {
       if (comparator(venue)) {
         venue.marker.setVisible(true);
         return true;
       } else {
         venue.marker.setVisible(false);
+        venue.infowindow.close();
         return false;
       }
     });
   };
 });
-
+viewModel.showInfowindow = function () {
+ this.infowindow.open(map, this.marker);
+ console.log(this);
+}
 var comparator = function (venue) {
-  if ((venue.name.toLowerCase().indexOf(viewModel.currentFilter().toLowerCase()) > -1) || arrayContainsString(venue, viewModel.currentFilter())) {
+  if ((venue.name.toLowerCase().indexOf(viewModel.currentFilter().toLowerCase()) > -1) || arrayContainsString(venue, viewModel.selectedCategory())) {
     return true;
   }
   else return false;
@@ -72,15 +81,20 @@ function getFoursquareVenues() {
       categoryList = [];
       viewModel.venues(data.response.venues);
       for (var i = 0; i < viewModel.venues().length; i++) {
+        // IIFE to bind infowindows to markers
         (function (venue) {
           var category = "";
           for (var j = 0; j < venue.categories.length; j++) {
+            if (viewModel.categories().indexOf(venue.categories[j].name) == -1) {
+              viewModel.categories.push(venue.categories[j].name);
+            }
             categoryList.push(venue.categories[j].name);
             category += venue.categories[j].name + " ";
           }
           var infowindow = new google.maps.InfoWindow({
-            content: venue.name + "<p>" + category
+            content: venue.name + "<p>" + category + "<p>Checkins: " + venue.stats.checkinsCount
           });
+          venue.infowindow = infowindow;
           var marker = new google.maps.Marker({
             position: { lat: venue.location.lat, lng: venue.location.lng },
             map: map,
@@ -142,6 +156,10 @@ function initAutocomplete() {
       marker.setMap(null);
     });
     markers = [];
+
+    for(var i = 0; i < viewModel.venues().length; i++) {
+      viewModel.venues()[i].marker.setMap(null);
+    }
 
     // For each place, get the icon, name and location.
     var bounds = new google.maps.LatLngBounds();
