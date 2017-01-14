@@ -3,17 +3,22 @@ const FOURSQUARE_CLIENT_SECRET = "KSS3BGAWCRRQBZPX1F20ZL5WY2BIRRBJPSRZBNP3VJAUHN
 const FOURSQUARE_API_VERSION = "20161221";
 const GOOGLE_MAPS_JS_API_KEY = "AIzaSyApoU2dpC25z2Z45WKMGV16kdTatObgr4M";
 const EVENTFUL_API_KEY = "t5wrJZZBq3bMtzvG";
+const STARTING_LAT = -33.8688;
+const STARTING_LNG = 151.2195;
 
+// KnockoutJS view model
 var viewModel = {
   venues: ko.observableArray([]),
   categories: ko.observableArray([]),
   selectedCategory: ko.observable(),
   currentFilter: ko.observable()
 };
+
+// computed observable to return the active venues based on filter
 viewModel.filteredVenues = ko.computed(function () {
   // only filter if currentFilter has a value
   if (!viewModel.currentFilter()) {
-    // make sure all venues are visible
+    // if there's no filter make sure all venues are visible
     if (viewModel.venues()) {
       viewModel.venues().forEach(function (venue) {
         if (venue.marker) {
@@ -36,10 +41,13 @@ viewModel.filteredVenues = ko.computed(function () {
     });
   };
 });
+
 viewModel.showInfowindow = function () {
- this.infowindow.open(map, this.marker);
- console.log(this);
+  this.infowindow.open(map, this.marker);
+  console.log(this);
 }
+
+// the function we will use to determine if we have a filter hit
 var comparator = function (venue) {
   if ((venue.name.toLowerCase().indexOf(viewModel.currentFilter().toLowerCase()) > -1) || arrayContainsString(venue, viewModel.selectedCategory())) {
     return true;
@@ -47,6 +55,7 @@ var comparator = function (venue) {
   else return false;
 }
 
+// utility function to see if an array contains part of a string
 var arrayContainsString = function (venue, term) {
   for (var i = 0; i < venue.categories.length; i++) {
     if (venue.categories[i].name.toLowerCase().indexOf(term) > -1) {
@@ -56,8 +65,10 @@ var arrayContainsString = function (venue, term) {
   return false;
 }
 
+// finally, apply the  bindings
 ko.applyBindings(viewModel);
 
+//utility function to fit the map bounds to visible markers
 function fitBoundsToVisibleMarkers(venues) {
   var bounds = new google.maps.LatLngBounds();
   for (var i = 0; i < venues.length; i++) {
@@ -69,63 +80,59 @@ function fitBoundsToVisibleMarkers(venues) {
 }
 
 var categoryList = [];
-function getFoursquareVenues() {
-  if (currentPlace) {
-    var lat = currentPlace[0].geometry.location.lat();
-    var lng = currentPlace[0].geometry.location.lng();
-    var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
-    $.ajax({
-      url: foursquareApiUrl
-    }).done(function (data) {
-      viewModel.venues(null);
-      categoryList = [];
-      viewModel.venues(data.response.venues);
-      for (var i = 0; i < viewModel.venues().length; i++) {
-        // IIFE to bind infowindows to markers
-        (function (venue) {
-          var category = "";
-          for (var j = 0; j < venue.categories.length; j++) {
-            if (viewModel.categories().indexOf(venue.categories[j].name) == -1) {
-              viewModel.categories.push(venue.categories[j].name);
-            }
-            categoryList.push(venue.categories[j].name);
-            category += venue.categories[j].name + " ";
+
+// function that gets venue data from foursquare
+function getFoursquareVenues(lat, lng) {
+  var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
+  $.ajax({
+    url: foursquareApiUrl,
+    error: function (xhr, ajaxOptions, thrownError) {
+      alert("There was an issue accessing Foursquare. Please try again later");
+    }
+  }).done(function (data) {
+    viewModel.venues(null);
+    categoryList = [];
+    viewModel.venues(data.response.venues);
+    for (var i = 0; i < viewModel.venues().length; i++) {
+      // IIFE to bind infowindows to markers
+      (function (venue) {
+        var category = "";
+        for (var j = 0; j < venue.categories.length; j++) {
+          if (viewModel.categories().indexOf(venue.categories[j].name) == -1) {
+            viewModel.categories.push(venue.categories[j].name);
           }
-          var infowindow = new google.maps.InfoWindow({
-            content: venue.name + "<p>" + category + "<p>Checkins: " + venue.stats.checkinsCount
-          });
-          venue.infowindow = infowindow;
-          var marker = new google.maps.Marker({
-            position: { lat: venue.location.lat, lng: venue.location.lng },
-            map: map,
-            animation: google.maps.Animation.DROP,
-            icon: makeMarkerIcon("FF33F2")
-          });
-          marker.addListener('click', function () {
-            infowindow.open(map, marker);
-          });
-          venue.marker = marker;
-        } (viewModel.venues()[i]))
-      }
-      fitBoundsToVisibleMarkers(viewModel.venues());
-    })
-  }
-
+          categoryList.push(venue.categories[j].name);
+          category += venue.categories[j].name + " ";
+        }
+        var infowindow = new google.maps.InfoWindow({
+          content: venue.name + "<p>" + category + "<p>Checkins: " + venue.stats.checkinsCount
+        });
+        venue.infowindow = infowindow;
+        var marker = new google.maps.Marker({
+          position: { lat: venue.location.lat, lng: venue.location.lng },
+          map: map,
+          animation: google.maps.Animation.DROP,
+          icon: makeMarkerIcon("FF33F2")
+        });
+        marker.addListener('click', function () {
+          infowindow.open(map, marker);
+        });
+        venue.marker = marker;
+      } (viewModel.venues()[i]))
+    }
+    fitBoundsToVisibleMarkers(viewModel.venues());
+  })
 }
-
-// This example adds a search box to a map, using the Google Place Autocomplete
-// feature. People can enter geographical searches. The search box will return a
-// pick list containing a mix of places and predicted search terms.
-
-// This example requires the Places library. Include the libraries=places
-// parameter when you first load the API. For example:
-// <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places">
 
 var map;
 var currentPlace;
+
+// This adds a search box to a map, using the Google Place Autocomplete
+// feature. People can enter geographical searches. The search box will return a
+// pick list containing a mix of places and predicted search terms.
 function initAutocomplete() {
   map = new google.maps.Map(document.getElementById('map'), {
-    center: { lat: -33.8688, lng: 151.2195 },
+    center: { lat: STARTING_LAT, lng: STARTING_LNG },
     zoom: 13,
     mapTypeId: 'roadmap'
   });
@@ -141,6 +148,11 @@ function initAutocomplete() {
   });
 
   var markers = [];
+
+  // get initial venues
+  getFoursquareVenues(STARTING_LAT, STARTING_LNG);
+
+
   // Listen for the event fired when the user selects a prediction and retrieve
   // more details for that place.
   searchBox.addListener('places_changed', function () {
@@ -157,7 +169,7 @@ function initAutocomplete() {
     });
     markers = [];
 
-    for(var i = 0; i < viewModel.venues().length; i++) {
+    for (var i = 0; i < viewModel.venues().length; i++) {
       viewModel.venues()[i].marker.setMap(null);
     }
 
@@ -192,8 +204,7 @@ function initAutocomplete() {
       }
     });
     map.fitBounds(bounds);
-    getFoursquareVenues();
-    //getEventfulEvents(places[0].geometry.location.lat(), places[0].geometry.location.lng(), map);
+    getFoursquareVenues(places[0].geometry.location.lat(), places[0].geometry.location.lng());
   });
 }
 
@@ -211,14 +222,7 @@ function makeMarkerIcon(markerColor) {
   return markerImage;
 }
 
-
-
-
-
-// potential to delete
-// http://api.eventful.com/json/events/search?app_key=t5wrJZZBq3bMtzvG&where=38.857481,-77.196756&within=25 
-// https://api.foursquare.com/v2/venues/search?ll=40.7,-74&client_id=FOURSQUARE_CLIENT_IDF&client_secret=FOURSQUARE_CLIENT_SECRET&v=20161221
-// https://maps.googleapis.com/maps/api/js?key=AIzaSyApoU2dpC25z2Z45WKMGV16kdTatObgr4M&callback=initMap
+// code to use Eventful to get events as a future feature
 function getEventfulEvents(lat, lng, map) {
   var eventfulApiUrl = "http://api.eventful.com/json/events/search?app_key=" + EVENTFUL_API_KEY + "&where=" + lat + "," + lng + "&within=25 ";
   $.ajax({
@@ -266,58 +270,4 @@ function getEventfulEvents(lat, lng, map) {
     }
     //map.fitBounds(bounds);
   });
-}
-/*
-var address = document.getElementById('address').value;
-geocoder.geocode({ 'address': address }, function (results, status) {
-  if (status === 'OK') {
-    resultsMap.setCenter(results[0].geometry.location);
-    var marker = new google.maps.Marker({
-      map: resultsMap,
-      position: results[0].geometry.location
-    });
-  } else {
-    alert('Geocode was not successful for the following reason: ' + status);
-  }
-});
-*/
-
-function getFoursquareInformationForLocation(lat, lng) {
-  var foursquareApiUrl = "https://api.foursquare.com/v2/venues/search?ll=" + lat + "," + lng + "&client_id=" + FOURSQUARE_CLIENT_ID + "&client_secret=" + FOURSQUARE_CLIENT_SECRET + "&v=" + FOURSQUARE_API_VERSION;
-  $.ajax({
-    url: foursquareApiUrl
-  })
-    .done(function (data) {
-      console.log(map);
-      if (console && console.log) {
-        var venues = data.response.venues;
-
-        var bounds = new google.maps.LatLngBounds();
-        for (var i = 0; i < venues.length; i++) {
-
-          (function (venue) {
-            var category = "";
-            for (var j = 0; j < venue.categories.length; j++) {
-              category += venue.categories[j].name + " ";
-
-            }
-            var infowindow = new google.maps.InfoWindow({
-              content: venue.name + "<p>" + category
-            });
-            var marker = new google.maps.Marker({
-              position: { lat: venue.location.lat, lng: venue.location.lng },
-              map: map,
-              animation: google.maps.Animation.DROP,
-              icon: makeMarkerIcon("FF33F2")
-            });
-            marker.addListener('click', function () {
-              infowindow.open(map, marker);
-            });
-            bounds.extend(marker.position);
-          })(venues[i]);
-
-        }
-        map.fitBounds(bounds);
-      }
-    });
 }
