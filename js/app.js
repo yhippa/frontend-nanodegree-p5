@@ -11,12 +11,11 @@ var map;
 var currentPlace;
 var infowindow;
 
-var googleMapsError = function() {
+var googleMapsError = function () {
   alert('There was an issue loading Google Maps. Please try again later.');
 }
 
-var getInfowindowContent = function(venue) {
-  console.log(venue);
+var getInfowindowContent = function (venue) {
   return venue.name + '<p>' + venue.categoryList + '<p>Checkins: ' + venue.stats.checkinsCount + '<p>Phone number: ' + venue.contact.formattedPhone;
 };
 
@@ -30,6 +29,9 @@ var viewModel = {
 
 // computed observable to return the active venues based on filter
 viewModel.filteredVenues = ko.computed(function () {
+  if (infowindow) {
+    infowindow.close();
+  }
   // only filter if currentFilter has a value
   if (!viewModel.currentFilter()) {
     // if there's no filter make sure all venues are visible
@@ -107,7 +109,7 @@ function getFoursquareVenues(lat, lng) {
     categoryList = [];
     viewModel.venues(data.response.venues);
     for (var i = 0; i < viewModel.venues().length; i++) {
-      // IIFE to bind infowindows to markers
+      // IIFE to bind marker click events
       (function (venue) {
         var category = '';
         for (var j = 0; j < venue.categories.length; j++) {
@@ -118,7 +120,6 @@ function getFoursquareVenues(lat, lng) {
           category += venue.categories[j].name + ' ';
         }
         venue.categoryList = category.trim();
-        venue.infowindow = infowindow;
         var marker = new google.maps.Marker({
           position: { lat: venue.location.lat, lng: venue.location.lng },
           map: map,
@@ -135,7 +136,7 @@ function getFoursquareVenues(lat, lng) {
       } (viewModel.venues()[i]))
     }
     fitBoundsToVisibleMarkers(viewModel.venues());
-  }).fail(function(error) {
+  }).fail(function (error) {
     alert('There was an issue accessing Foursquare. Please try again later.');
   })
 }
